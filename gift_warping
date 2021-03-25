@@ -1,0 +1,154 @@
+from collections import namedtuple
+from scipy.spatial import distance
+import matplotlib.pyplot as plt
+
+""" Implementacao do algoritimo de Jarvis para Fecho convexo 2d - Gift Warping
+
+    Pseudo-code:
+
+    Passo 0: escolha o ponto mais a esquerda
+    Passo 1: visite os outros pontos a partir do start e teste se ha pontos a esquerda. Faremos isso usando cross product. Quando 
+    houver pontos a esquerda, mude para esse ponto. 
+    Passo 2: Repita o passo 1 para os outros pontos formando assim o boundry
+
+
+"""
+
+#escreve arquivo saida
+def vertices_fecho(fecho,out,dict_id_vert):
+    lista_vert=[]
+    text_file = open(out, "w")
+    for v in fecho:
+        par=(v.x,v.y)
+        print 'par',par
+        ids =[]
+        for key in dict_id_vert.keys():
+            if par == dict_id_vert[key] or par== dict_id_vert[key]:
+                ids.append(key)
+
+        text_file.write(str(ids)+'\n')
+        print par
+        lista_vert.append(par)
+
+    return lista_vert
+
+
+
+
+def leitura_txt(file):
+    fp = open(file)
+    lines = fp.readlines()
+    pontos = []
+    dict_id_vert = {}
+    for i in range(0, len(lines)):
+        lines[i] = lines[i].strip()
+        pts = lines[i].split()
+        px = int(pts[0])
+        py = int(pts[1])
+        pts = (px, py)
+        pontos.append(pts)
+        dict_id_vert[i] = pts
+
+    #print pontos
+
+    print dict_id_vert
+    return pontos,dict_id_vert
+
+def direction(a, b, c):
+    valor = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+    return valor
+
+
+def jarvis_march(points):
+    #encontrando ponto mais a esquerda
+    a = min(points, key=lambda point: point.x)
+
+    index = points.index(a)
+
+    l = index
+    fecho = []
+    fecho.append(a)
+
+    while (True):
+        #teste um ponto
+        q = (l + 1) % len(points)
+        for i in range(len(points)):
+            if i == l:
+                #Sendo o ponto de partida, continue
+                continue
+
+            # mude para esquerda quando o cross product for maior que zero
+            # ou em caso de colimearidade, mude para o mais distante
+            d = direction(points[l], points[i], points[q])
+            if d > 0 or (d == 0 and distance.euclidean(points[i], points[l]) > distance.euclidean(points[q], points[l])):
+                q = i
+
+        #redefine prox start
+        l = q
+
+        #se deu a volta para
+        if l == index:
+            break
+
+
+        fecho.append(points[q])
+
+    #fecho.insert(0,fecho[-1])
+    #fecho.pop(len(fecho)-1)
+
+    print 'fecho',fecho
+
+    return fecho
+
+
+Ponto = namedtuple('Ponto', ['x', 'y'])
+
+file = 'nuvem1.txt'
+
+
+# selecao do arquivo
+poly,ids = leitura_txt(file)
+
+points = [Ponto(*ponto) for ponto in poly]
+
+
+#Execucao do algoritmo
+p = jarvis_march(points)
+
+#salvando os arquivos
+
+if file == 'nuvem1.txt':
+    out = 'fecho1.txt'
+else:
+    out= 'fecho2.txt'
+
+
+vertices_fecho(p,out,ids)
+
+
+
+#desenhando os pontos e fecho
+print points
+a=[]
+b=[]
+
+for ts in points:
+    a.append(ts.x)
+    b.append(ts.y)
+
+
+
+x = []
+y = []
+for pt in p:
+    x.append(pt.x)
+    y.append(pt.y)
+
+x.append(p[0].x)
+y.append(p[0].y)
+
+plt.interactive(False)
+plt.plot(a,b,'ro')
+plt.plot(x,y)
+plt.show()
+
