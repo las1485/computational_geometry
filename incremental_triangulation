@@ -1,0 +1,223 @@
+import numpy as np
+from math import sqrt
+from collections import namedtuple
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import pylab as pl
+from matplotlib import collections as mc
+import itertools
+
+
+
+#matplotlib.use('TkAgg')
+
+
+
+def leitura_txt(file):
+    fp = open(file)
+    lines = fp.readlines()
+    pontos = []
+    for i in range(0, len(lines)):
+        lines[i] = lines[i].strip()
+        pts = lines[i].split()
+        px = int(pts[0])
+        py = int(pts[1])
+        pts = (px, py)
+        pontos.append(pts)
+
+    #print pontos
+
+    return pontos
+
+
+def orientacao(p, q, r):
+    # descobrindo se o ponto esta a esquerda ou a direita de um segmento ancora de reta
+    valor = ((q[1] - p[1]) * (r[0] - q[0]) -
+             (q[0] - p[0]) * (r[1] - q[1]))
+    if valor == 0:
+        return 0  # colinear
+    elif valor > 0:
+        return 1  # sentido_horario
+    else:
+        return 2  # sentido_antihorario
+
+
+def colineares(p, q, r):
+    # Checa se 3 pontos estao no mesmo segmento de reta
+    if (q[0] <= max(p[0], r[0]) and q[0] >= min(p[0], r[0]) and
+            q[1] <= max(p[1], r[1]) and q[1] >= min(p[1], r[1])):
+        return True
+    return False
+
+
+def checa_intersecao(p1, q1, p2, q2):
+    o1 = orientacao(p1, q1, p2)
+    o2 = orientacao(p1, q1, q2)
+    o3 = orientacao(p2, q2, p1)
+    o4 = orientacao(p2, q2, q1)
+
+
+    if (o1 != o2 and o3 != o4):
+        #tem que ser diferentes/opostas para ter intersecao
+        return True
+
+    return False  # nao ha intersecao
+
+
+
+Ponto = namedtuple('Ponto', ['x', 'y'])
+
+file = 'nuvem1.txt'
+
+poly = leitura_txt(file)
+
+points = [Ponto(*ponto) for ponto in poly]
+
+pontos_ord = sorted(points,key = lambda p: p.x)
+
+#ptos = pontos_ord[:7]
+
+pontos_ord = pontos_ord[:]
+
+points = {}
+
+for idx,i in enumerate(pontos_ord):
+    points[idx]=i
+
+new_line_segment =[]
+
+pointsTobeProcessed=[]
+pointsTobeProcessed = pontos_ord[3:]
+
+print 'points',(pointsTobeProcessed)
+
+#inicializacao
+
+triangulation = {}
+#conjunto de triangulos
+triangulation[0]=((points[0],points[1],points[2]))
+
+#pontos pertencente ao triangulo
+pontosdotriangulo = [points[0],points[1],points[2]]
+
+
+line_segments = [(points[0],points[1]),(points[1],points[2]),(points[0],points[2])]
+
+#print 'ls',line_segments
+
+#print 'tri',triangulation
+
+i=0
+
+while i < len(pointsTobeProcessed):
+    p1 = pointsTobeProcessed[i]
+    for q1 in pontosdotriangulo:
+        intersecao = False
+        for line in line_segments:
+            p2 = line[0]
+            q2 = line[1]
+            if p1 != p2 and p1 != q2 and q1 != p2 and q1 != q2:
+                #print 'pontos de analise'
+                #print (p1,q1,p2,q2)
+                if checa_intersecao(p1,q1,p2,q2):
+                    intersecao = True
+                    #print 'tem intersecao'
+
+        if intersecao==False:
+            new_line_segment.append((p1,q1))
+
+
+
+    pontos_de_conexao =[]
+
+    for j in range(len(new_line_segment)):
+        pontos_de_conexao.append(new_line_segment[j][1])
+
+
+
+    combinations = list(itertools.combinations(pontos_de_conexao, 2))
+    #print 'combination list',len(combinations)
+
+    if i ==2:
+        print 'combinations', combinations
+        print 'lines', line_segments
+
+
+    for comb in combinations:
+        comb2=[]
+        comb2.append(comb[1])
+        comb2.append(comb[0])
+        comb2=tuple(comb2)
+        for line in line_segments:
+            if line == comb or line == comb2:
+                triangulation[len(triangulation)] = (p1, comb[0], comb[1])
+
+    pontosdotriangulo.append(p1)
+
+
+    i=i+1
+
+    for line in new_line_segment:
+        line_segments.append(line)
+
+    new_line_segment = []
+
+print 'quant',len(triangulation)
+print 'Triangulos',triangulation
+
+print 'ls_final',line_segments
+
+for k in range(len(triangulation)):
+    print triangulation[k]
+
+
+
+#desenhando os pontos e fecho
+a=[]
+b=[]
+
+for ts in pontos_ord:
+    a.append(ts.x)
+    b.append(ts.y)
+
+#print 'a',a
+#print 'b',b
+
+x = []
+y = []
+for line in line_segments:
+    for v in line:
+        x.append(v.x)
+        y.append(v.y)
+
+    #x.append(t[0].x)
+    #y.append(t[0].y)
+
+#x.append(pontos_ord[0].x)
+#y.append(pontos_ord[0].y)
+
+#print 'x',x
+#print 'y',y
+
+#print 'quant triang',len(triangulos)
+
+
+c = np.array([(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)])
+
+lc = mc.LineCollection(line_segments)
+fig, ax = pl.subplots()
+ax.add_collection(lc)
+ax.autoscale()
+ax.margins(0.1)
+plt.plot(a,b,'ro')
+plt.show()
+
+'''
+plt.interactive(False)
+plt.plot(a,b,'ro')
+plt.plot(x,y)
+plt.show()
+
+'''
+
