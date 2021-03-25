@@ -1,0 +1,556 @@
+import numpy as np
+from math import sqrt
+from collections import namedtuple
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import pylab as pl
+from matplotlib import collections as mc
+import itertools
+from collections import defaultdict
+from matplotlib import animation
+
+
+""" Implementacao do algoritimo de Delaunay
+
+    Pseudo-code:
+
+    Passo 0: faz uma triagulacao arbitaria utilizando o metodo incremental
+    Passo 1: verifica todas as arestas
+    Passo 2: flip todas as arestas ilegais
+
+
+"""
+
+
+
+
+def leitura_txt(file):
+    fp = open(file)
+    lines = fp.readlines()
+    pontos = []
+    for i in range(0, len(lines)):
+        lines[i] = lines[i].strip()
+        pts = lines[i].split()
+        px = int(pts[0])
+        py = int(pts[1])
+        pts = (px, py)
+        pontos.append(pts)
+
+    #print pontos
+
+    return pontos
+
+
+def orientacao(p, q, r):
+    # descobrindo se o ponto esta a esquerda ou a direita de um segmento ancora de reta
+    valor = ((q[1] - p[1]) * (r[0] - q[0]) -
+             (q[0] - p[0]) * (r[1] - q[1]))
+    if valor == 0:
+        return 0  # colinear
+    elif valor > 0:
+        return 1  # sentido_horario
+    else:
+        return 2  # sentido_antihorario
+
+
+def colineares(p, q, r):
+    # Checa se 3 pontos estao no mesmo segmento de reta
+    if (q[0] <= max(p[0], r[0]) and q[0] >= min(p[0], r[0]) and
+            q[1] <= max(p[1], r[1]) and q[1] >= min(p[1], r[1])):
+        return True
+    return False
+
+
+def inCircle(center,r, p):
+    center = center
+    radius = r
+    if ((p[0]-center[0])**2 + (p[1]-center[1])**2) <= radius**2:
+        #print 'esta dentro do circulo',t1,q
+        return True
+    else:
+        #print 'esta fora do circulo',t1,q
+        return False
+
+
+def area(t):
+    x1 = t[0][0]
+    y1 = t[0][1]
+    x2 = t[1][0]
+    y2 = t[1][1]
+    x3 = t[2][0]
+    y3 = t[2][1]
+    return abs((x1 * (y2 - y3) + x2 * (y3 - y1)
+                + x3 * (y1 - y2)) / 2.0)
+
+
+def isInsideTriangle(t2,q):
+    x = q[0]
+    y=q[1]
+    x1 = t2[0][0]
+    y1 = t2[0][1]
+    x2 = t2[1][0]
+    y2 = t2[1][1]
+    x3 = t2[2][0]
+    y3 = t2[2][1]
+    #x1, y1, x2, y2, x3, y3, x, y
+
+    # Calculate area of triangle ABC
+    A = area(t2)
+
+    # Calculate area of triangle PBC
+    t3 = (Ponto(x,y),Ponto(x2,y2),Ponto(x3,y3))
+    A1 = area(t3)
+
+    # Calculate area of triangle PAC
+    t4 = (Ponto(x1,y1),Ponto(x,y),Ponto(x3,y3))
+    A2 = area(t4)
+
+    # Calculate area of triangle PAB
+    t5 = (Ponto(x1,y1),Ponto(x2,y2),Ponto(x,y))
+    A3 = area(t5)
+
+    # Check if sum of A1, A2 and A3
+    # is same as A
+    if (A == A1 + A2 + A3):
+        #print 'ponto dentro do triangulo',t
+        return True
+    else:
+        #print 'ponto FORA do triangulo', t
+        return False
+
+
+def cercle_circonscrit(T):
+    (x1, y1), (x2, y2), (x3, y3) = T
+    A = np.array([[x3-x1,y3-y1],[x3-x2,y3-y2]])
+    Y = np.array([(x3**2 + y3**2 - x1**2 - y1**2),(x3**2+y3**2 - x2**2-y2**2)])
+    if np.linalg.det(A) == 0:
+        return False
+    Ainv = np.linalg.inv(A)
+    X = 0.5*np.dot(Ainv,Y)
+    x,y = X[0],X[1]
+    r = sqrt((x-x1)**2+(y-y1)**2)
+    return (x,y),r
+
+
+
+def checa_intersecao(p1, q1, p2, q2):
+    o1 = orientacao(p1, q1, p2)
+    o2 = orientacao(p1, q1, q2)
+    o3 = orientacao(p2, q2, p1)
+    o4 = orientacao(p2, q2, q1)
+
+
+    if (o1 != o2 and o3 != o4):
+        #tem que ser diferentes/opostas para ter intersecao
+        return True
+
+    return False  # nao ha intersecao
+
+
+
+"""
+Escreve abaixo, qual arquivo quer testar: nuvem1.txt ou nuvem2.txt
+"""
+
+file = 'nuvem1.txt'
+
+
+
+
+
+"""
+Inicio da implementacao:
+"""
+
+
+
+Ponto = namedtuple('Ponto', ['x', 'y'])
+
+
+poly = leitura_txt(file)
+
+points = [Ponto(*ponto) for ponto in poly]
+
+
+"""
+Ordenacao dos pontos em X:
+"""
+pontos_ord = sorted(points,key = lambda p: p.x)
+
+
+
+
+pontos_ord = pontos_ord[:]
+
+
+points = {}
+
+for idx,i in enumerate(pontos_ord):
+    points[idx]=i
+
+new_line_segment =[]
+
+pointsTobeProcessed=[]
+pointsTobeProcessed = pontos_ord[3:]
+
+
+
+triangulation = {}
+
+
+"""
+Triangulo inicial com os 3 primeiros pontos
+"""
+
+triangulation[0]=((points[0],points[1],points[2]))
+
+
+
+
+#pontos pertencente ao triangulo
+pontosdotriangulo = [points[0],points[1],points[2]]
+
+#segmentos de retas que conectam 2 pontos
+line_segments = [(points[0],points[1]),(points[1],points[2]),(points[0],points[2])]
+
+
+i=0
+
+
+"""
+Inicio da construcao de um triangulo qualquer utilizando o metodo incremental
+"""
+
+while i < len(pointsTobeProcessed):
+    p1 = pointsTobeProcessed[i]
+    for q1 in pontosdotriangulo:
+        intersecao = False
+        for line in line_segments:
+            p2 = line[0]
+            q2 = line[1]
+            if p1 != p2 and p1 != q2 and q1 != p2 and q1 != q2:
+                if checa_intersecao(p1,q1,p2,q2):
+                    intersecao = True
+
+        if intersecao==False:
+            new_line_segment.append((p1,q1))
+
+    # guarda com quais pontos da triangulacao, esse novo ponto se conecta
+    pontos_de_conexao =[]
+
+    for j in range(len(new_line_segment)):
+        pontos_de_conexao.append(new_line_segment[j][1])
+
+
+    #guarda as possiveis combinacoes dos pontos de conexao para depois ver se eh possivel fechar um triangulo
+    combinations = list(itertools.combinations(pontos_de_conexao, 2))
+
+
+    #dado uma combinacao de pontos de conexao, ve se existe um segmento de reta que conecta eles para fechar um triangulo
+    for comb in combinations:
+        comb2=[]
+        comb2.append(comb[1])
+        comb2.append(comb[0])
+        comb2=tuple(comb2)
+        for line in line_segments:
+            if line == comb or line == comb2:
+                triangulation[len(triangulation)] = (p1, comb[0], comb[1])
+
+    pontosdotriangulo.append(p1)
+
+
+    i=i+1
+
+    for line in new_line_segment:
+        line_segments.append(line)
+
+    new_line_segment = []
+
+
+
+
+#exclui triangulos extras que ficam por cima de outros
+tobeexcluded=[]
+for t in triangulation:
+    max_x = -999999
+    max_y = -999999
+    min_x = 999999
+    min_y = 999999
+    for p in triangulation[t]:
+        if p[0] > max_x:
+            max_x = p[0]
+        if p[0] < min_x:
+            min_x = p[0]
+
+        if p[1] > max_y:
+            max_y = p[1]
+        if p[1] < min_y:
+            min_y = p[1]
+
+    for ptris in pontosdotriangulo:
+        if ptris[0] > min_x and ptris[0] < max_x and ptris[1] > min_y and ptris[1] < max_y:
+            if isInsideTriangle(triangulation[t], ptris):
+                #print 'deletando..',triangulation[t]
+                if t not in tobeexcluded:
+                    tobeexcluded.append(t)
+
+
+#faz a triangulacao final
+new_triangulation ={}
+j=0
+for k in range(len(triangulation)):
+    if k not in tobeexcluded:
+        new_triangulation[j] = triangulation[k]
+        j = j+1
+
+
+
+
+#criando estrutura para edges de triangulos
+edges_tri=[]
+
+for k in range(len(new_triangulation)):
+        #print triangulation[k]
+        edge1 = (new_triangulation[k][0], new_triangulation[k][1])
+        edge2 = (new_triangulation[k][1], new_triangulation[k][2])
+        edge3 = (new_triangulation[k][2], new_triangulation[k][0])
+        edges = (edge1, edge2, edge3)
+        edges_tri.append((edges))
+
+
+
+#buscando esdges compartilhados
+
+edges_tri_copy = edges_tri
+shared_edges =[]
+count = 0
+
+shared_edges = {}
+
+count = 0
+
+for idx,i in enumerate(edges_tri):
+    count = count + 1
+    for j in i:
+        el = j
+        el2 = []
+        el2.append(el[1])
+        el2.append(el[0])
+        el2 = tuple(el2)
+        for idy,k in enumerate(edges_tri[idx+1:]):
+            for m in k:
+                if m ==el or m==el2:
+                    triangs = (idx,idy+count)
+                    aresta = m
+                    shared_edges[triangs] = aresta
+
+#shared_edges ={(0,1):Ponto(x=267, y=248), Ponto(x=277, y=294))}
+#Essa estrutura mostra qual edge eg compartilhado e por qual triangulo
+
+
+#Troca de value por key
+new_shared = {}
+for key, value in shared_edges.items():
+   if value in new_shared:
+       new_shared[value].append(key)
+   else:
+       new_shared[value]=[key]
+
+
+
+
+"""
+Com uma triangulacao pronta, damos inicio ao algoritmo de flip
+"""
+
+
+shared_edges =[]
+i=0
+testados = []
+circulos={}
+
+line_segmentsv2 = list(line_segments)
+
+
+i = 0
+while line_segments:
+    e = line_segments[0]
+    e2 = []
+    e2.append(e[1])
+    e2.append(e[0])
+    e2 = tuple(e2)
+
+    #para todos os segmentos, testa antes se o segmento eh compartilhado e ainda nao foi testado
+    if e not in new_shared and e2 not in new_shared or e in testados:
+        i = i + 1
+        line_segments.pop(0)
+        continue
+
+    if e in new_shared:
+        e = e
+
+    if e2 in new_shared:
+        e = e2
+
+
+    #para cada par de triangulos que compartilha esse edge, faca:
+    for t in new_shared[e]:
+        t1 = new_triangulation[t[0]]
+        t2 = new_triangulation[t[1]]
+
+        #faz o circuncirculo para saber se o ponto q esta dentro ou fora
+        c,r = cercle_circonscrit(t1)
+        circulos[c] = r
+
+        for pnt in t2:
+            if pnt not in e:
+                q = pnt
+
+        for pnt2 in t1:
+            if pnt2 not in e:
+                q2 = pnt2
+
+        areat1 = area(t1)
+        areat2 = area(t2)
+
+        if areat1 < areat2:
+            ponto = q2
+            trial = t2
+        else:
+            ponto = q
+            trial = t1
+
+        #not isInsideTriangle(trial,ponto) and
+        if inCircle(c,r,q):
+            #Se estiver no circulo, faz o flip
+
+            t1_v0 = e[0] # shared
+            t1_v1 = e[1] # shared
+            for p in t1: # not shared
+                if p != t1_v0 and p != t1_v1:
+                    t1_v2 = p
+
+            t2_v0 = e[0] # shared(unnecessary)
+            t2_v1 = e[1] # shared(unnecessary)
+            for p in t2: # not shared
+                if p != t2_v0 and p != t2_v1: # not shared
+                    t2_v2 = p
+
+            t1 = list(t1)
+            t2 = list(t2)
+
+            t1[0] = t1_v0
+            t1[1] = t1_v2
+            t1[2] = t2_v2
+
+
+            t2[0] = t2_v1
+            t2[1] = t2_v2
+            t2[2] = t1_v2
+
+
+            t1 = tuple(t1)
+            t2 = tuple(t2)
+
+            new_triangulation[t[0]] = t1
+
+            new_triangulation[t[1]] = t2
+
+
+            #altera o segmento de reta
+            line_segmentsv2[i] = Ponto(t1_v2,t2_v2)
+
+
+            #Se algumas das retas dos dois novos triangulos nao estiver em testados, retire
+            #ela de testado e coloque de novo line_segments
+
+    line_segments.pop(0)
+    testados.append(e)
+    i = i+1
+
+
+#escreve arquivo saida
+def salva_delaunay(triangulation,out):
+    text_file = open(out, "w")
+    for t in new_triangulation:
+        print t, new_triangulation[t]
+        text_file.write(str(new_triangulation[t])+'\n')
+
+
+
+
+if file == 'nuvem1.txt':
+    out = 'delaunay1.txt'
+else:
+    out= 'delaunay2.txt'
+
+salva_delaunay(new_triangulation,out)
+
+lc = mc.LineCollection(line_segmentsv2)
+
+print 'lc',line_segmentsv2
+
+
+
+fig, ax = pl.subplots()
+ax.scatter(p[:,0], p[:,1])
+ax.add_collection(lc)
+ax.autoscale()
+ax.margins(0.1)
+for i in range(n):
+    pl.text(p[i,0], p[i,1], str(i), fontsize=12)
+
+# Used to return the plot as an image rray
+fig.canvas.draw()       # draw the canvas, cache the renderer
+image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+
+
+
+"""
+desenhando os triangulos
+"""
+
+
+
+'''
+
+a=[]
+b=[]
+
+for ts in pontos_ord:
+    a.append(ts.x)
+    b.append(ts.y)
+
+#print 'a',a
+#print 'b',b
+
+x = []
+y = []
+for line in line_segments:
+    for v in line:
+        x.append(v.x)
+        y.append(v.y)
+
+
+
+
+lc = mc.LineCollection(line_segmentsv2)
+fig, ax = pl.subplots()
+
+
+
+ax.add_collection(lc)
+ax.autoscale()
+ax.margins(0.1)
+plt.plot(a,b,'ro')
+plt.show()
+
+
+
+
+'''
+
+
